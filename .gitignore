@@ -1,1 +1,3 @@
 ollama-mcp
+vendor/
+*.log

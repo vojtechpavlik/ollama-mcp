@@ -8,9 +8,9 @@ its main LLM. Each server instance connects to a single Ollama model.
 ## Architecture
 
 The server is a Go program that communicates over stdio using the MCP
-protocol. It acts as a bridge: the MCP host calls the `generate` tool,
-and the server forwards the request to an Ollama instance, collects the
-streamed response, and returns it as text content.
+protocol. It acts as a bridge: the MCP host calls one of the provided
+tools, and the server forwards the request to an Ollama instance,
+collects the response, and returns it as text content.
 
 ```text
 MCP Host <--stdio/JSON-RPC--> ollama-mcp <--HTTP--> Ollama
@@ -22,15 +22,19 @@ A YAML config file controls the Ollama connection and generation parameters:
 
 | Field        | Type   | Description                          |
 |--------------|--------|--------------------------------------|
-| `host`       | string | Ollama server hostname               |
+| `host`       | string | Ollama server hostname / URL         |
 | `port`       | int    | Ollama server port                   |
 | `model`      | string | Model name to use for generation     |
 | `max_tokens` | int    | Max tokens to generate (num_predict) |
 
-The config file path is specified via the `-config` flag
-(default: `config.yaml`).
+The config file path is specified via the `-config` flag (default: `config.yaml`).
+Sensible defaults are used if the file is missing or values are unspecified.
+Environment variables (`OLLAMA_HOST`, `OLLAMA_PORT`, `OLLAMA_MODEL`,
+`OLLAMA_MAX_TOKENS`) override the configuration.
 
-## Tool: `generate`
+## Tools
+
+### `generate`
 
 **Description:** Generate text using the configured Ollama model.
 
@@ -44,6 +48,24 @@ The config file path is specified via the `-config` flag
 **Error handling:** Ollama errors are returned as tool-level errors
 (via `SetError`) so the MCP host can see and handle them.
 
+### `chat`
+
+**Description:** Multi-turn conversation with the configured Ollama model.
+
+**Input:**
+
+- `messages` (array of objects, required) — list of messages (role, content)
+
+**Output:** The generated response.
+
+### `list_models`
+
+**Description:** List available Ollama models.
+
+**Input:** None.
+
+**Output:** A list of model names.
+
 ## Dependencies
 
 - `github.com/modelcontextprotocol/go-sdk` — MCP Go SDK
@@ -54,9 +76,12 @@ The config file path is specified via the `-config` flag
 
 ```text
 ollama-mcp/
-├── main.go      # Entry point: config, Ollama client, tool, server
-├── config.go    # Config struct and YAML loading
-├── config.yaml  # Default configuration
+├── main.go         # Entry point: Ollama client, tool handlers, server
+├── config.go       # Config struct and loading (YAML, environment, defaults)
+├── config_test.go  # Unit tests for configuration
+├── config.yaml     # Default configuration
+├── Makefile        # Build, test, and linting
+├── ollama-mcp.1    # Man page
 ├── go.mod
 └── go.sum
 ```

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/ollama/ollama/api"
@@ -18,6 +19,17 @@ type GenerateArgs struct {
 	System string `json:"system,omitempty" jsonschema:"description=Optional system message override"`
 }
 
+type Message struct {
+	Role    string `json:"role" jsonschema:"description=The role of the message (system, user, assistant),required"`
+	Content string `json:"content" jsonschema:"description=The content of the message,required"`
+}
+
+type ChatArgs struct {
+	Messages []Message `json:"messages" jsonschema:"description=The list of messages in the conversation,required"`
+}
+
+type ListModelsArgs struct{}
+
 func main() {
 	configPath := flag.String("config", "config.yaml", "path to config file")
 	flag.Parse()
@@ -27,11 +39,23 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	base, err := url.Parse(fmt.Sprintf("http://%s:%d", cfg.Host, cfg.Port))
+	rawURL := cfg.Host
+	if !strings.Contains(rawURL, "://") {
+		rawURL = fmt.Sprintf("http://%s:%d", cfg.Host, cfg.Port)
+	}
+	base, err := url.Parse(rawURL)
 	if err != nil {
 		log.Fatalf("Invalid Ollama URL: %v", err)
 	}
-	ollamaClient := api.NewClient(base, http.DefaultClient)
+
+	// Create a custom HTTP client. We set a large timeout here to allow for
+	// long-running generation, while still preventing indefinite hangs.
+	// Individual requests are also governed by the context provided by the
+	// MCP host.
+	httpClient := &http.Client{
+		Timeout: 5 * time.Minute,
+	}
+	ollamaClient := api.NewClient(base, httpClient)
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "ollama-mcp",
@@ -67,6 +91,66 @@ func main() {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
 				&mcp.TextContent{Text: sb.String()},
+			},
+		}, nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "chat",
+		Description: "Multi-turn conversation with the configured Ollama model",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args ChatArgs) (*mcp.CallToolResult, any, error) {
+		ollamaMessages := make([]api.Message, len(args.Messages))
+		for i, m := range args.Messages {
+			ollamaMessages[i] = api.Message{
+				Role:    m.Role,
+				Content: m.Content,
+			}
+		}
+		chatReq := &api.ChatRequest{
+			Model:    cfg.Model,
+			Messages: ollamaMessages,
+			Options: map[string]any{
+				"num_predict": cfg.MaxTokens,
+			},
+		}
+
+		var sb strings.Builder
+		err := ollamaClient.Chat(ctx, chatReq, func(resp api.ChatResponse) error {
+			sb.WriteString(resp.Message.Content)
+			return nil
+		})
+		if err != nil {
+			result := &mcp.CallToolResult{}
+			result.SetError(fmt.Errorf("ollama chat failed: %w", err))
+			return result, nil, nil
+		}
+
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: sb.String()},
+			},
+		}, nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "list_models",
+		Description: "List available Ollama models",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args ListModelsArgs) (*mcp.CallToolResult, any, error) {
+		resp, err := ollamaClient.List(ctx)
+		if err != nil {
+			result := &mcp.CallToolResult{}
+			result.SetError(fmt.Errorf("ollama list failed: %w", err))
+			return result, nil, nil
+		}
+
+		var names []string
+		for _, m := range resp.Models {
+			names = append(names, m.Name)
+		}
+
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("Available models: %s", strings.Join(names, ", "))},
 			},
 		}, nil, nil
 	})
