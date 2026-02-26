@@ -1,0 +1,105 @@
+.TH OLLAMA\-MCP 1 2025-06-01 ollama\-mcp-0.1.0
+.SH NAME
+ollama\-mcp \- MCP server exposing Ollama models as tools
+.SH SYNOPSIS
+.B ollama\-mcp
+.RB [ \-config
+.IR path ]
+.SH DESCRIPTION
+.B ollama\-mcp
+is an MCP (Model Context Protocol) server that exposes a local Ollama
+language model as a tool over stdio.
+An MCP host launches
+.B ollama\-mcp
+as a subprocess and communicates via JSON-RPC over stdin/stdout.
+The host can then call the
+.B generate
+tool to run prompts against the configured Ollama model.
+.PP
+The data flow is:
+.RS
+MCP host \(<-stdio/JSON-RPC\(-> ollama\-mcp \(<-HTTP\(-> Ollama
+.RE
+.SS Tool: generate
+The server registers a single tool called
+.BR generate .
+.TP
+.B prompt
+(string, required) \(em the prompt to send to the model.
+.TP
+.B system
+(string, optional) \(em system message override.
+.PP
+The tool returns the complete generated text as MCP text content.
+Ollama errors are returned as tool-level errors so the MCP host can
+handle them.
+.SH OPTIONS
+.TP
+.BI \-config " path"
+Path to the YAML configuration file.
+Default:
+.BR config.yaml .
+.SH CONFIGURATION
+The YAML config file controls the Ollama connection:
+.TP
+.BI host " hostname"
+Ollama server hostname.
+Default:
+.BR localhost .
+.TP
+.BI port " number"
+Ollama server port.
+Default:
+.BR 11434 .
+.TP
+.BI model " name"
+Ollama model to use for generation.
+Default:
+.BR llama3 .
+.TP
+.BI max_tokens " number"
+Maximum number of tokens to generate (maps to Ollama's num_predict).
+Default:
+.BR 1024 .
+.SH EXIT STATUS
+.TP
+.B 0
+Clean shutdown.
+.TP
+.B 1
+Fatal error during startup or operation (e.g.\& missing config, invalid
+Ollama URL).
+.SH EXAMPLES
+Configure
+.B ollama\-mcp
+as an MCP server in Claude Desktop:
+.PP
+.RS
+.EX
+{
+  "mcpServers": {
+    "ollama": {
+      "command": "/usr/bin/ollama\-mcp",
+      "args": ["\-config", "/etc/ollama\-mcp/config.yaml"]
+    }
+  }
+}
+.EE
+.RE
+.PP
+Run with a custom config:
+.PP
+.RS
+.EX
+ollama\-mcp \-config /path/to/config.yaml
+.EE
+.RE
+.SH SEE ALSO
+.BR ollama (1)
+.PP
+Model Context Protocol specification:
+.nf
+https://spec.modelcontextprotocol.io/
+.fi
+.SH AUTHOR
+Vojtech Pavlik

@@ -1,0 +1,29 @@
+[Unit]
+Description=ollama-mcp - MCP server exposing Ollama models as tools
+Documentation=man:ollama-mcp(1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ollama-mcp -config /etc/ollama-mcp/config.yaml
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+DynamicUser=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

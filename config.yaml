@@ -1,0 +1,4 @@
+host: localhost
+port: 11434
+model: llama3
+max_tokens: 1024
