@@ -16,6 +16,7 @@ import (
 
 type GenerateArgs struct {
 	Prompt string `json:"prompt" jsonschema:"The prompt to send to the model"`
+	Model  string `json:"model,omitempty" jsonschema:"Optional model override (defaults to configured model)"`
 	System string `json:"system,omitempty" jsonschema:"Optional system message override"`
 }
 
@@ -26,6 +27,7 @@ type Message struct {
 
 type ChatArgs struct {
 	Messages []Message `json:"messages" jsonschema:"The list of messages in the conversation"`
+	Model    string    `json:"model,omitempty" jsonschema:"Optional model override (defaults to configured model)"`
 }
 
 type ListModelsArgs struct{}
@@ -66,8 +68,12 @@ func main() {
 		Name:        "generate",
 		Description: "Generate text using the configured Ollama model",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args GenerateArgs) (*mcp.CallToolResult, any, error) {
+		model := cfg.Model
+		if args.Model != "" {
+			model = args.Model
+		}
 		genReq := &api.GenerateRequest{
-			Model:  cfg.Model,
+			Model:  model,
 			Prompt: args.Prompt,
 			Options: map[string]any{
 				"num_predict": cfg.MaxTokens,
@@ -99,6 +105,10 @@ func main() {
 		Name:        "chat",
 		Description: "Multi-turn conversation with the configured Ollama model",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args ChatArgs) (*mcp.CallToolResult, any, error) {
+		model := cfg.Model
+		if args.Model != "" {
+			model = args.Model
+		}
 		ollamaMessages := make([]api.Message, len(args.Messages))
 		for i, m := range args.Messages {
 			ollamaMessages[i] = api.Message{
@@ -107,7 +117,7 @@ func main() {
 			}
 		}
 		chatReq := &api.ChatRequest{
-			Model:    cfg.Model,
+			Model:    model,
 			Messages: ollamaMessages,
 			Options: map[string]any{
 				"num_predict": cfg.MaxTokens,
