@@ -15,17 +15,17 @@ import (
 )
 
 type GenerateArgs struct {
-	Prompt string `json:"prompt" jsonschema:"description=The prompt to send to the model,required"`
-	System string `json:"system,omitempty" jsonschema:"description=Optional system message override"`
+	Prompt string `json:"prompt" jsonschema:"The prompt to send to the model"`
+	System string `json:"system,omitempty" jsonschema:"Optional system message override"`
 }
 
 type Message struct {
-	Role    string `json:"role" jsonschema:"description=The role of the message (system, user, assistant),required"`
-	Content string `json:"content" jsonschema:"description=The content of the message,required"`
+	Role    string `json:"role" jsonschema:"The role of the message (system, user, assistant)"`
+	Content string `json:"content" jsonschema:"The content of the message"`
 }
 
 type ChatArgs struct {
-	Messages []Message `json:"messages" jsonschema:"description=The list of messages in the conversation,required"`
+	Messages []Message `json:"messages" jsonschema:"The list of messages in the conversation"`
 }
 
 type ListModelsArgs struct{}
