@@ -34,6 +34,8 @@ type ListModelsArgs struct{}
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "path to config file")
+	transport := flag.String("transport", "stdio", "transport method: stdio, sse, http, or auto")
+	listenAddr := flag.String("listen", "localhost:8080", "listen address for network transports")
 	flag.Parse()
 
 	cfg, err := LoadConfig(*configPath)
@@ -165,7 +167,43 @@ func main() {
 		}, nil, nil
 	})
 
-	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	switch *transport {
+	case "stdio":
+		if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
+	case "sse", "http", "auto":
+		serverFactory := func(*http.Request) *mcp.Server { return server }
+		sseHandler := mcp.NewSSEHandler(serverFactory, nil)
+		streamableHandler := mcp.NewStreamableHTTPHandler(serverFactory, nil)
+
+		mux := http.NewServeMux()
+
+		switch *transport {
+		case "sse":
+			mux.Handle("/mcp", sseHandler)
+			mux.Handle("/mcp/", sseHandler)
+		case "http":
+			mux.Handle("/mcp", streamableHandler)
+			mux.Handle("/mcp/", streamableHandler)
+		case "auto":
+			autoHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if (r.Method == http.MethodGet && strings.Contains(r.Header.Get("Accept"), "text/event-stream")) ||
+					(r.Method == http.MethodPost && r.URL.Query().Get("sessionid") != "") {
+					sseHandler.ServeHTTP(w, r)
+					return
+				}
+				streamableHandler.ServeHTTP(w, r)
+			})
+			mux.Handle("/mcp", autoHandler)
+			mux.Handle("/mcp/", autoHandler)
+		}
+
+		log.Printf("ollama-mcp starting (%s transport), listening on %s/mcp", *transport, *listenAddr)
+		if err := http.ListenAndServe(*listenAddr, mux); err != nil {
+			log.Fatalf("HTTP server failed: %v", err)
+		}
+	default:
+		log.Fatalf("Invalid transport %q: must be stdio, sse, http, or auto", *transport)
 	}
 }
