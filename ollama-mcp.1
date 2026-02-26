@@ -12,17 +12,15 @@ language model as a tool over stdio.
 An MCP host launches
 .B ollama\-mcp
 as a subprocess and communicates via JSON-RPC over stdin/stdout.
-The host can then call the
-.B generate
-tool to run prompts against the configured Ollama model.
+The host can then call several tools to run prompts or list models on the
+configured Ollama model.
 .PP
 The data flow is:
 .RS
 MCP host \(<-stdio/JSON-RPC\(-> ollama\-mcp \(<-HTTP\(-> Ollama
 .RE
 .SS Tool: generate
-The server registers a single tool called
-.BR generate .
+Generate text using the configured Ollama model.
 .TP
 .B prompt
 (string, required) \(em the prompt to send to the model.
@@ -31,6 +29,18 @@ The server registers a single tool called
 (string, optional) \(em system message override.
 .PP
 The tool returns the complete generated text as MCP text content.
+.SS Tool: chat
+Multi-turn conversation with the configured Ollama model.
+.TP
+.B messages
+(array of objects, required) \(em list of messages.
+Each message object must have
+.B role
+(string) and
+.B content
+(string) fields.
+.SS Tool: list_models
+List available models in the Ollama instance.
 Ollama errors are returned as tool-level errors so the MCP host can
 handle them.
 .SH OPTIONS
@@ -40,10 +50,17 @@ Path to the YAML configuration file.
 Default:
 .BR config.yaml .
 .SH CONFIGURATION
-The YAML config file controls the Ollama connection:
+The YAML config file controls the Ollama connection.
+If the file is missing or values are unspecified, defaults are used.
+Environment variables
+.RB ( OLLAMA_HOST ,
+.RB OLLAMA_PORT ,
+.RB OLLAMA_MODEL ,
+.RB OLLAMA_MAX_TOKENS )
+override the configuration.
 .TP
 .BI host " hostname"
-Ollama server hostname.
+Ollama server hostname or base URL.
 Default:
 .BR localhost .
 .TP
