@@ -1,10 +1,10 @@
 # ollama-mcp
 
-An MCP server that exposes Ollama language models as tools over stdio.
+An MCP server that exposes Ollama language models as tools
 
 ## Prerequisites
 
-- Go 1.25+
+- Go 1.23+
 - A running [Ollama](https://ollama.com/) instance with a pulled model
   (e.g. `ollama pull llama3`)
 

@@ -2,8 +2,6 @@ module ollama-mcp
 
 go 1.24.1
 
-toolchain go1.24.3
-
 require (
 	github.com/modelcontextprotocol/go-sdk v1.3.0
 	github.com/ollama/ollama v0.15.6
